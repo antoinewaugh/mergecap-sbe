@@ -6,25 +6,19 @@
 #include <unistd.h>
 #include <stdio.h>
 
-uint64_t read64(const void *buf) {
+inline uint64_t read64(const void *buf) {
     return *static_cast<const uint64_t *>(buf);
 }
 
-uint32_t read32(const void *buf) {
-    return *static_cast<const uint32_t *>(buf);
-}
-
-uint16_t read16(const void *buf) {
+inline uint16_t read16(const void *buf) {
     return *static_cast<const uint16_t *>(buf);
 }
 
 struct packet_t {
-    uint16_t channel;
-    uint16_t length;
-    uint32_t seqnum;
     uint64_t sendingtime;
     FILE *fd;
     size_t offset;
+    uint16_t length;
 };
 
 static packet_t read_packet(FILE *fd, const unsigned char *buf) {
@@ -32,9 +26,7 @@ static packet_t read_packet(FILE *fd, const unsigned char *buf) {
     constexpr auto header = 4;
 
     packet_t packet;
-    packet.channel = read16(buf);
     packet.length = read16(buf + 2) + header;
-    packet.seqnum = read32(buf + 4);
     packet.sendingtime = read64(buf + 8);
     packet.offset = ftell(fd);
     packet.fd = fd;
