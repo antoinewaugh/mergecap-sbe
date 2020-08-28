@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <unistd.h>
 #include <stdio.h>
+#include <cassert>
 
 inline uint64_t read64(const void *buf) {
     return *static_cast<const uint64_t *>(buf);
@@ -21,14 +22,14 @@ struct packet_t {
     uint16_t length;
 };
 
-static packet_t read_packet(FILE *fd, const unsigned char *buf) {
+static packet_t read_packet(FILE *fd, const unsigned char *buf, size_t size) {
 
     constexpr auto header = 4;
 
     packet_t packet;
     packet.length = read16(buf + 2) + header;
     packet.sendingtime = read64(buf + 8);
-    packet.offset = ftell(fd);
+    packet.offset = ftell(fd) - size;
     packet.fd = fd;
 
     return packet;
@@ -41,7 +42,7 @@ bool operator<(const packet_t &lhs, const packet_t &rhs) {
 void merge_pcap(const std::vector<std::string> &files,
                 const std::string &filename) {
 
-    unsigned char buf[sizeof(packet_t)];
+    unsigned char buf[1500];
 
     std::vector<FILE *> descriptors;
 
@@ -49,13 +50,10 @@ void merge_pcap(const std::vector<std::string> &files,
     for (auto &path: files) {
         auto fd = fopen(path.c_str(), "rb");
         descriptors.push_back(fd);
-        while (true) {
-            auto bytes = fread(buf, sizeof(buf), 1, fd);
-            auto packet = read_packet(fd, buf);
+        while (auto bytes = fread(buf, sizeof(buf), 1, fd) > 0) {
+            auto packet = read_packet(fd, buf, sizeof(buf));
+            assert(packet.length < 1500);
             packets.push_back(packet);
-            if (feof(fd)) {
-                break;
-            }
             fseek(fd, -sizeof(buf) + packet.length, SEEK_CUR);
         }
     }
