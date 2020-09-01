@@ -42,7 +42,7 @@ bool operator<(const packet_t &lhs, const packet_t &rhs) {
 void merge_pcap(const std::vector<std::string> &files,
                 const std::string &filename) {
 
-    unsigned char buf[1500];
+    unsigned char rbuf[sizeof(packet_t)];
 
     std::vector<FILE *> descriptors;
 
@@ -50,20 +50,22 @@ void merge_pcap(const std::vector<std::string> &files,
     for (auto &path: files) {
         auto fd = fopen(path.c_str(), "rb");
         descriptors.push_back(fd);
-        while (auto bytes = fread(buf, sizeof(buf), 1, fd) > 0) {
-            auto packet = read_packet(fd, buf, sizeof(buf));
+        while (auto bytes = fread(rbuf, sizeof(rbuf), 1, fd) > 0) {
+            auto packet = read_packet(fd, rbuf, sizeof(rbuf));
             assert(packet.length < 1500);
             packets.push_back(packet);
-            fseek(fd, -sizeof(buf) + packet.length, SEEK_CUR);
+            fseek(fd, -sizeof(rbuf) + packet.length, SEEK_CUR);
         }
     }
 
     std::sort(packets.begin(), packets.end());
+
     auto fd_out = fopen(filename.c_str(), "wb");
+    unsigned char wbuf[1500];
     for (auto &packet: packets) {
         fseek(packet.fd, packet.offset, SEEK_SET);
-        auto bytes = fread(buf, sizeof(buf), 1, packet.fd);
-        fwrite(buf, packet.length, 1, fd_out);
+        auto bytes = fread(wbuf, sizeof(wbuf), 1, packet.fd);
+        fwrite(wbuf, packet.length, 1, fd_out);
     }
     fclose(fd_out);
 
